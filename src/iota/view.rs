@@ -2,6 +2,7 @@ use buffer::{Buffer, Direction, Mark};
 use input::Input;
 use uibuf::{UIBuffer, CharColor};
 use frontends::Frontend;
+use textobject::TextObject;
 
 /// A View is an abstract Window (into a Buffer).
 ///
@@ -131,6 +132,13 @@ impl<'v> View<'v> {
     pub fn move_cursor_to_line_start(&mut self) {
         self.buffer.shift_mark(self.cursor, Direction::LineStart);
         self.move_screen();
+    }
+
+    pub fn move_cursor_to_object(&mut self, to: TextObject) {
+        if let Some(idx) = self.buffer.get_object_idx(to) {
+            self.buffer.set_mark(self.cursor, idx);
+            self.move_screen();
+        }
     }
 
     //Update the top_line mark if necessary to keep the cursor on the screen.

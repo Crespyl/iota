@@ -2,7 +2,8 @@ use std::collections::{ HashMap };
 
 use keyboard::Key;
 use editor::Command;
-use buffer::Direction;
+use buffer::{Direction, Mark};
+use textobject::{TextObject, Reference, Anchor, Kind};
 
 pub enum Trie {
     Leaf(Command),
@@ -150,8 +151,26 @@ impl KeyMap {
         keymap.bind_key(Key::Ctrl('e'), Command::LineEnd);
         keymap.bind_key(Key::Ctrl('a'), Command::LineStart);
 
+        keymap.bind_key(Key::Char('['), Command::CursorToObject(TextObject { 
+            anchor: Anchor::Before,
+            reference: Reference::Offset(Mark::Cursor(0), Kind::Word, -1)
+        }));
+        keymap.bind_key(Key::Char(']'), Command::CursorToObject(TextObject { 
+            anchor: Anchor::After,
+            reference: Reference::Offset(Mark::Cursor(0), Kind::Word, 1)
+        }));
+
+        keymap.bind_key(Key::Char('{'), Command::CursorToObject(TextObject { 
+            anchor: Anchor::Before,
+            reference: Reference::Offset(Mark::Cursor(0), Kind::Line, -1)
+        }));
+        keymap.bind_key(Key::Char('}'), Command::CursorToObject(TextObject { 
+            anchor: Anchor::Before,
+            reference: Reference::Offset(Mark::Cursor(0), Kind::Line, 1)
+        }));
+
         // Editing
-        keymap.bind_key(Key::Tab, Command::InsertTab);
+        keymap.bind_key(Key::Tab, Command::InsertChar('\t'));
         keymap.bind_key(Key::Enter, Command::InsertChar('\n'));
         keymap.bind_key(Key::Backspace, Command::Delete(Direction::Left(1)));
         keymap.bind_key(Key::Ctrl('h'), Command::Delete(Direction::Left(1)));

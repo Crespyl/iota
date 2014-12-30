@@ -19,6 +19,7 @@ mod view;
 mod uibuf;
 mod log;
 mod frontends;
+mod textobject;
 
 #[deriving(Copy)]
 pub enum Response {

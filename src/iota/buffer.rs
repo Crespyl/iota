@@ -8,6 +8,8 @@ use std::cmp;
 use std::collections::HashMap;
 use std::io::{File, Reader, BufferedReader};
 
+use textobject::{TextObject, Reference, Anchor, Kind};
+
 #[deriving(Copy, PartialEq, Eq, Hash, Show)]
 pub enum Mark {
     Cursor(uint),           //For keeping track of cursors.
@@ -84,6 +86,57 @@ impl Buffer {
                 Some(idx)
             } else { None }
         } else { None }
+    }
+
+    ///The absolute index of a given text object.  None if object does not exist.
+    pub fn get_object_idx(&self, to: TextObject) -> Option<uint> {
+        let TextObject { anchor: anchor, reference: reference } = to;
+        match reference {
+            Reference::Index(kind, n) => self.get_idx_of_nth(kind, n),
+            Reference::Offset(mark, kind, n) if n >= 0 => self.get_idx_of_nth_after(mark, kind, n as uint),
+            Reference::Offset(mark, kind, n) if n < 0  => self.get_idx_of_nth_before(mark, kind, (n * -1) as uint),
+            _ => { unimplemented!(); None }
+        }
+    }
+
+    pub fn get_idx_of_nth(&self, kind: Kind, n: uint) -> Option<uint> {
+        match kind {
+            // FIXME: unicode/wide characters
+            Kind::Char if n < self.text.len() => Some(n),
+            Kind::Line                        => get_nth_line_after(0, n, &self.text),
+            Kind::Word                        => get_nth_word_after(0, n, &self.text),
+            _ => { unimplemented!(); None }
+        }
+    }
+
+    ///Find the buffer index of the nth text object after a given mark
+    pub fn get_idx_of_nth_after(&self, mark: Mark, kind: Kind, n: uint) -> Option<uint> {
+        if let Some(&(start,_)) = self.marks.get(&mark) {
+            match kind {
+                // FIXME: unicode/wide characters
+                Kind::Char if (n+start) < self.text.len() => Some(n+start),
+                Kind::Line                                => get_nth_line_after(start, n, &self.text),
+                Kind::Word                                => get_nth_word_after(start, n, &self.text),
+                _ => { unimplemented!(); None }
+            }
+        } else {
+            None
+        }
+    }
+
+    ///Find the buffer index of the nth text object before a given mark
+    pub fn get_idx_of_nth_before(&self, mark: Mark, kind: Kind, n: uint) -> Option<uint> {
+        if let Some(&(start,_)) = self.marks.get(&mark) {
+            match kind {
+                // FIXME: unicode/wide characters
+                Kind::Char if (start-n) >= 0 => Some(start-n),
+                Kind::Line                   => get_nth_line_before(start, n, &self.text),
+                Kind::Word                   => get_nth_word_before(start, n, &self.text),
+                _ => { unimplemented!(); None }
+            }
+        } else {
+            None
+        }
     }
 
     ///Creates an iterator on the text by lines.
@@ -209,6 +262,88 @@ impl Buffer {
         } else { None }
     }
 
+}
+
+///Get the index of the first character of the nth word preceeding start
+fn get_nth_word_before(start: uint, n: uint, text: &GapBuffer<u8>) -> Option<uint> {
+    use std::char::from_u32;
+
+    let mut word = 0;
+    let mut in_word = if let Some(ch) = from_u32(text[start] as u32) {
+        ch.is_alphabetic()
+    } else {
+        false
+    };
+
+    for idx in range(0, start).rev() {
+        if let Some(ch) = from_u32(text[idx] as u32) {
+            if !ch.is_alphabetic() {
+                in_word = false;
+                if word == n {
+                    return Some(idx+1);
+                }
+            } else if !in_word {
+                in_word = true;
+                word += 1;
+            }
+        }
+    }
+    None
+}
+
+///Get the index of the first character of the nth word following start
+fn get_nth_word_after(start: uint, n: uint, text: &GapBuffer<u8>) -> Option<uint> {
+    use std::char::from_u32;
+
+    let mut word = 0;
+    let mut in_word = if let Some(ch) = from_u32(text[start] as u32) {
+        ch.is_alphabetic()
+    } else {
+        false
+    };
+
+    for idx in range(start, text.len()) {
+        if let Some(ch) = from_u32(text[idx] as u32) {
+            if !ch.is_alphabetic() {
+                in_word = false;
+            } else if !in_word {
+                in_word = true;
+                word += 1;
+                if word == n {
+                    return Some(idx);
+                }
+            }
+        }
+    }
+    None
+}
+
+///Get the index of the first character of the nth line preceeding start
+fn get_nth_line_before(start: uint, n: uint, text: &GapBuffer<u8>) -> Option<uint> {
+    let mut line = 0;
+    for idx in range(0, start).rev() {
+        if text[idx] == b'\n' {
+            if line == n {
+                return Some(idx+1)
+            }
+            line += 1;
+        }
+    }
+    None
+}
+
+///Get the index of the first character of the nth line following start
+fn get_nth_line_after(start: uint, n: uint, text: &GapBuffer<u8>) -> Option<uint> {
+    let mut line = 1;
+    for idx in range(start, text.len()) {
+        if text[idx] == b'\n' {
+            if line == n {
+                return Some(idx+1)
+            }
+            line += 1;
+        }
+    }
+    None
 }
 
 //Returns the index of the first character of the line the mark is in.

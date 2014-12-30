@@ -8,6 +8,7 @@ use keyboard::Key;
 use keymap::{ KeyMap, KeyMapState };
 use view::View;
 use frontends::{Frontend, EditorEvent};
+use textobject::TextObject;
 
 
 #[deriving(Copy, Show)]
@@ -18,6 +19,7 @@ pub enum Command {
     ResizeView,
 
     MoveCursor(Direction),
+    CursorToObject(TextObject),
     LineEnd,
     LineStart,
 
@@ -107,7 +109,6 @@ impl<'e, T: Frontend> Editor<'e, T> {
 
     pub fn start(&mut self) {
         loop {
-            self.view.clear(&mut self.frontend);
             self.draw();
             self.frontend.present();
             let event = self.frontend.poll_event();
@@ -129,6 +130,7 @@ impl<'e, T: Frontend> Editor<'e, T> {
 
             // Navigation
             Command::MoveCursor(dir)    =>  self.view.move_cursor(dir),
+            Command::CursorToObject(to) =>  self.view.move_cursor_to_object(to),
             Command::LineEnd            =>  self.view.move_cursor_to_line_end(),
             Command::LineStart          =>  self.view.move_cursor_to_line_start(),
 
