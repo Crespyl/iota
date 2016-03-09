@@ -110,6 +110,24 @@ impl Buffer {
         } else { None }
     }
 
+    /// Calculate a MarkPosition from an absolute index. None if out of bounds
+    pub fn make_mark_from_idx(&self, idx: usize) -> Option<MarkPosition> {
+        if idx >= self.len() { None }
+        else {
+            // we need to find the line number and the index of the start of the line
+            let mut line = 0;
+            let mut line_start = 0;
+            for i in 0..idx {
+                if self.text[i] == b'\n' { line += 1; line_start = i; }
+            }
+            Some(MarkPosition {
+                absolute: idx,
+                absolute_line_start: line_start,
+                line_number: line,
+            })
+        }
+    }
+
     /// Creates an iterator on the text by lines.
     pub fn lines(&self) -> Lines {
         Lines {
@@ -328,7 +346,6 @@ impl Buffer {
             let nlines = (mark_pos.absolute..text.len()).filter(|i| text[*i] == b'\n')
                                             .take(offset + 1)
                                             .collect::<Vec<usize>>();
-            if nlines.is_empty() { return None }
 
             match anchor {
                 // Get the same index as the current line_index
@@ -362,10 +379,7 @@ impl Buffer {
                 Anchor::End => {
                     // if this is the last line in the buffer
                     if nlines.is_empty() {
-                        let mut new_mark_pos = MarkPosition::start();
-                        new_mark_pos.absolute = last;
-
-                        return Some(new_mark_pos)
+                        return self.make_mark_from_idx(self.len()-1);
                     }
                     let end_offset = cmp::min(mark_pos.absolute - mark_pos.absolute_line_start + nlines[offset] + 1, nlines[offset]);
                     let mut new_mark_pos = MarkPosition::start();
